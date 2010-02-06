@@ -37,6 +37,10 @@ class TestHeader < Test::Unit::TestCase
       Rack::OpenID.parse_header('OpenID identity="http://example.com/", return_to="http://example.org/"'))
     assert_equal({"identity" => "http://example.com/", "required" => ["nickname", "email"]},
       Rack::OpenID.parse_header('OpenID identity="http://example.com/", required="nickname,email"'))
+
+    # ensure we don't break standard HTTP basic auth
+    assert_equal({},
+      Rack::OpenID.parse_header('Realm="Example"'))
   end
 end
 
@@ -186,6 +190,12 @@ class TestOpenID < Test::Unit::TestCase
     assert_equal '', @response.headers['X-Query-String']
   end
 
+  def test_passthrough_standard_http_basic_auth
+    @app = app
+    process('/', :method => 'GET', "MOCK_HTTP_BASIC_AUTH" => '1')
+    assert_equal 401, @response.status
+  end
+
   private
     def app(options = {})
       options[:identifier] ||= "#{RotsServer}/john.doe?openid.success=true"
@@ -202,6 +212,8 @@ class TestOpenID < Test::Unit::TestCase
           else
             [400, headers, [resp.status.to_s]]
           end
+        elsif env["MOCK_HTTP_BASIC_AUTH"]
+          [401, {Rack::OpenID::AUTHENTICATE_HEADER => 'Realm="Example"'}, []]
         else
           [401, {Rack::OpenID::AUTHENTICATE_HEADER => Rack::OpenID.build_header(options)}, []]
         end

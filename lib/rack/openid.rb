@@ -20,8 +20,8 @@ module Rack
 
     def self.parse_header(str)
       params = {}
-      if str =~ /^OpenID/
-        str = str.gsub(/^OpenID /, '')
+      if str =~ AUTHENTICATE_REGEXP
+        str = str.gsub(/#{AUTHENTICATE_REGEXP}\s+/, '')
         str.split(', ').each { |pair|
           key, *value = pair.split('=')
           value = value.join('=')
@@ -47,6 +47,7 @@ module Rack
 
     RESPONSE = "rack.openid.response".freeze
     AUTHENTICATE_HEADER = "WWW-Authenticate".freeze
+    AUTHENTICATE_REGEXP = /^OpenID/.freeze
 
 
     def initialize(app, store = nil)
@@ -64,7 +65,7 @@ module Rack
       status, headers, body = @app.call(env)
 
       qs = headers[AUTHENTICATE_HEADER]
-      if status.to_i == 401 && qs
+      if status.to_i == 401 && qs && qs.match(AUTHENTICATE_REGEXP)
         begin_authentication(env, qs)
       else
         [status, headers, body]
